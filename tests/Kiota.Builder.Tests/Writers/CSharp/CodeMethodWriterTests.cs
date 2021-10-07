@@ -308,7 +308,7 @@ namespace Kiota.Builder.Writers.CSharp.Tests {
         public void WritesReturnType() {
             writer.Write(method);
             var result = tw.ToString();
-            Assert.Contains($"{AsyncKeyword} {TaskPrefix}{ReturnTypeName}> {MethodName}", result); // async default
+            Assert.Contains($"{AsyncKeyword} {TaskPrefix}{ReturnTypeName}> {MethodName.ToFirstCharacterUpperCase()}", result); // async default
             AssertExtensions.CurlyBracesAreClosed(result);
         }
         [Fact]
