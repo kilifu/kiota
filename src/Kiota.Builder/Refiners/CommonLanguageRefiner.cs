@@ -160,6 +160,18 @@ namespace Kiota.Builder.Refiners {
                 (!codeElementExceptions?.Contains(typeof(CodeUsing)) ?? true) &&
                 currentClass.StartBlock is Declaration currentDeclaration)
                 ReplaceReservedCodeUsings(currentDeclaration, provider, replacement);
+            else if(current is CodeEnum currentEnum)
+            {
+                var replacedOptions = new List<string>();
+                foreach (var option in currentEnum.Options)
+                {
+                    var replacedOption = provider.ReservedNames.Contains(option)
+                        ? replacement.Invoke(option)
+                        : option;
+                    replacedOptions.Add(replacedOption);
+                }
+                currentEnum.Options = replacedOptions;
+            }
             else if(current is CodeNamespace currentNamespace &&
                 (!codeElementExceptions?.Contains(typeof(CodeNamespace)) ?? true) &&
                 !string.IsNullOrEmpty(currentNamespace.Name))
@@ -297,7 +309,7 @@ namespace Kiota.Builder.Refiners {
                                     }).ToArray());
             if(codeUnionType.Types.All(x => x.TypeDefinition is CodeClass targetClass && targetClass.IsOfKind(CodeClassKind.Model) ||
                                     x.TypeDefinition is CodeEnum)) {
-                KiotaBuilder.AddSerializationMembers(newClass, true, usesBackingStore);
+                // TODO (Swift) KiotaBuilder.AddSerializationMembers(newClass, true, usesBackingStore);
                 newClass.ClassKind = CodeClassKind.Model;
             }
             return new CodeType {

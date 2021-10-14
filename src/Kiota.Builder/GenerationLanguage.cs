@@ -6,6 +6,7 @@ namespace Kiota.Builder {
         PHP,
         Python,
         Go,
+        Swift,
         Ruby,
     }
 }

@@ -8,6 +8,7 @@ using Kiota.Builder.Writers.Go;
 using Kiota.Builder.Writers.Java;
 using Kiota.Builder.Writers.Ruby;
 using Kiota.Builder.Writers.TypeScript;
+using Kiota.Builder.Writers.Swift;
 
 namespace Kiota.Builder.Writers
 {
@@ -107,8 +108,9 @@ namespace Kiota.Builder.Writers
                         ((ICodeElementWriter<CodeNamespace>) elementWriter).WriteCodeElement(n, this);
                         break;
                 }
-            else if(!(code is CodeClass) && !(code is CodeNamespace.BlockDeclaration) && !(code is CodeNamespace.BlockEnd))
-                throw new InvalidOperationException($"Dispatcher missing for type {code.GetType()}");
+            // TODO (Swift) re-enable
+            //else if(!(code is CodeClass) && !(code is CodeNamespace.BlockDeclaration) && !(code is CodeNamespace.BlockEnd))
+                //throw new InvalidOperationException($"Dispatcher missing for type {code.GetType()}");
         }
         protected void AddCodeElementWriter<T>(ICodeElementWriter<T> writer) where T: CodeElement {
             Writers.Add(typeof(T), writer);
@@ -122,6 +124,7 @@ namespace Kiota.Builder.Writers
                 GenerationLanguage.TypeScript => new TypeScriptWriter(outputPath, clientNamespaceName),
                 GenerationLanguage.Ruby => new RubyWriter(outputPath, clientNamespaceName),
                 GenerationLanguage.Go => new GoWriter(outputPath, clientNamespaceName),
+                GenerationLanguage.Swift => new SwiftWriter(outputPath, clientNamespaceName),
                 _ => throw new InvalidEnumArgumentException($"{language} language currently not supported."),
             };
         }

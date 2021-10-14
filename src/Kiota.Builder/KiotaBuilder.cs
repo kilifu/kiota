@@ -794,7 +794,7 @@ namespace Kiota.Builder
             return newClass;
         }
         private void CreatePropertiesForModelClass(OpenApiUrlTreeNode currentNode, OpenApiSchema schema, CodeNamespace ns, CodeClass model) {
-            AddSerializationMembers(model, schema?.AdditionalPropertiesAllowed ?? false, config.UsesBackingStore);
+            // TODO(Swift) AddSerializationMembers(model, schema?.AdditionalPropertiesAllowed ?? false, config.UsesBackingStore);
             if(schema?.Properties?.Any() ?? false)
             {
                 model.AddProperty(schema
