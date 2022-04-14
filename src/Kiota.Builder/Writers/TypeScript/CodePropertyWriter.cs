@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Linq;
+using System.Net.Http.Headers;
 using Kiota.Builder.Extensions;
 using Kiota.Builder.Refiners;
 
@@ -21,6 +22,12 @@ namespace Kiota.Builder.Writers.TypeScript {
                     writer.DecreaseIndent();
                     writer.WriteLine("}");
                 break;
+                case CodePropertyKind.Interface:
+                    writer.IncreaseIndent();
+                    writer.WriteLine($"{codeElement.Name}: {returnType}");
+                    writer.DecreaseIndent();
+                    writer.WriteLine("}");
+                    break;
                 default:
                     writer.WriteLine($"{conventions.GetAccessModifier(codeElement.Access)}{(codeElement.ReadOnly ? " readonly ": " ")}{codeElement.NamePrefix}{codeElement.Name.ToFirstCharacterLowerCase()}{(codeElement.Type.IsNullable ? "?" : string.Empty)}: {returnType}{(isFlagEnum ? "[]" : string.Empty)}{(codeElement.Type.IsNullable ? " | undefined" : string.Empty)};");
                 break;

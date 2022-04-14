@@ -35,6 +35,7 @@ namespace Kiota.Builder
         /// The request response handler. Used when request parameters are wrapped in a classs.
         /// </summary>
         ResponseHandler,
+        Interface
     }
 
     public class CodeProperty : CodeTerminalWithKind<CodePropertyKind>, IDocumentedElement
