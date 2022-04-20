@@ -14,6 +14,12 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
         RemoveCancellationParameter(generatedCode);
         CorrectCoreType(generatedCode, CorrectMethodType, CorrectPropertyType, CorrectImplements);
         CorrectCoreTypesForBackingStore(generatedCode, "BackingStoreFactorySingleton.instance.createBackingStore()");
+        AddInnerClasses(generatedCode, 
+            true, 
+            string.Empty,
+            true);
+        DisableActionOf(generatedCode, 
+            CodeParameterKind.QueryParameter);
         AddPropertiesAndMethodTypesImports(generatedCode, true, true, true);
         AliasUsingsWithSameSymbol(generatedCode);
         AddParsableImplementsForModelClasses(generatedCode, "Parsable");
@@ -82,6 +88,10 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
         CopyModelClassesAsInterfaces(
             generatedCode,
             x => $"{x.Name}Interface"
+        );
+
+          AddQueryParameterMapperMethod(
+            generatedCode
         );
     }
     private static void CopyModelClassesAsInterfaces(CodeElement currentElement, Func<CodeClass, string> interfaceNamingCallback)
