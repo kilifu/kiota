@@ -25,8 +25,7 @@ namespace Kiota.Builder.Writers.TypeScript {
                 case CodePropertyKind.Interface:
                     writer.IncreaseIndent();
                     writer.WriteLine($"{codeElement.Name}: {returnType}");
-                    writer.DecreaseIndent();
-                    writer.WriteLine("}");
+                    writer.DecreaseIndent();                 
                     break;
                 default:
                     writer.WriteLine($"{conventions.GetAccessModifier(codeElement.Access)}{(codeElement.ReadOnly ? " readonly ": " ")}{codeElement.NamePrefix}{codeElement.Name.ToFirstCharacterLowerCase()}{(codeElement.Type.IsNullable ? "?" : string.Empty)}: {returnType}{(isFlagEnum ? "[]" : string.Empty)}{(codeElement.Type.IsNullable ? " | undefined" : string.Empty)};");
