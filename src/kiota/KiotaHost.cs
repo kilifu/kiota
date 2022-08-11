@@ -73,6 +73,9 @@ public class KiotaHost {
         "The MIME types to use for structured data model generation. Accepts multiple values.");
         structuredMimeTypesOption.AddAlias("-m");
 
+        var restStyleGenerationOption = new Option<bool>("--rest-style-gen", () => defaultConfiguration.RestStyleGeneration, "Generate .api styled rest based code");
+        restStyleGenerationOption.AddAlias("-rest");
+
         var command = new RootCommand {
             descriptionOption,
             outputOption,
@@ -85,7 +88,8 @@ public class KiotaHost {
             serializerOption,
             deserializerOption,
             cleanOutputOption,
-            structuredMimeTypesOption
+            structuredMimeTypesOption,
+            restStyleGenerationOption
         };
         command.Description = "OpenAPI-based HTTP Client SDK code generator";
         command.Handler = new KiotaCommandHandler {
@@ -100,7 +104,8 @@ public class KiotaHost {
             SerializerOption = serializerOption,
             DeserializerOption = deserializerOption,
             CleanOutputOption = cleanOutputOption,
-            StructuredMimeTypesOption = structuredMimeTypesOption
+            StructuredMimeTypesOption = structuredMimeTypesOption,
+            RestStyleGeneration = restStyleGenerationOption
         };
         return command;
     }

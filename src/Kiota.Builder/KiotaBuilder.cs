@@ -65,30 +65,37 @@ public class KiotaBuilder
         sw.Start();
         openApiDocument = CreateOpenApiDocument(input);
         StopLogAndReset(sw, "step 2 - parsing the document - took");
+        if (config.RestStyleGeneration) 
+        {
+            Console.WriteLine("command here");
+            var restGen = new TSRESTAPIGenerator();
+            restGen.generate(config.OutputPath, openApiDocument);
+        }
+        else {
+            SetApiRootUrl();
 
-        SetApiRootUrl();
+            modelNamespacePrefixToTrim = GetDeeperMostCommonNamespaceNameForModels(openApiDocument);
 
-        modelNamespacePrefixToTrim = GetDeeperMostCommonNamespaceNameForModels(openApiDocument);
+            // Step 3 - Create Uri Space of API
+            sw.Start();
+            var openApiTree = CreateUriSpace(openApiDocument);
+            StopLogAndReset(sw, "step 3 - create uri space - took");
 
-        // Step 3 - Create Uri Space of API
-        sw.Start();
-        var openApiTree = CreateUriSpace(openApiDocument);
-        StopLogAndReset(sw, "step 3 - create uri space - took");
+            // Step 4 - Create Source Model
+            sw.Start();
+            var generatedCode = CreateSourceModel(openApiTree);
+            StopLogAndReset(sw, "step 4 - create source model - took");
 
-        // Step 4 - Create Source Model
-        sw.Start();
-        var generatedCode = CreateSourceModel(openApiTree);
-        StopLogAndReset(sw, "step 4 - create source model - took");
+            // Step 5 - RefineByLanguage
+            sw.Start();
+            ApplyLanguageRefinement(config, generatedCode);
+            StopLogAndReset(sw, "step 5 - refine by language - took");
 
-        // Step 5 - RefineByLanguage
-        sw.Start();
-        ApplyLanguageRefinement(config, generatedCode);
-        StopLogAndReset(sw, "step 5 - refine by language - took");
-
-        // Step 6 - Write language source 
-        sw.Start();
-        await CreateLanguageSourceFilesAsync(config.Language, generatedCode, cancellationToken);
-        StopLogAndReset(sw, "step 6 - writing files - took");
+            // Step 6 - Write language source 
+            sw.Start();
+            await CreateLanguageSourceFilesAsync(config.Language, generatedCode, cancellationToken);
+            StopLogAndReset(sw, "step 6 - writing files - took");
+        }
     }
     private void SetApiRootUrl() {
         config.ApiRootUrl = openApiDocument.Servers.FirstOrDefault()?.Url.TrimEnd('/');

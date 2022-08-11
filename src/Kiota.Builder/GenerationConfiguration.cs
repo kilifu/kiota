@@ -43,5 +43,7 @@ namespace Kiota.Builder {
             "text/xml",
             "text/yaml",
         };
+
+        public bool RestStyleGeneration { get; set;}
     }
 }

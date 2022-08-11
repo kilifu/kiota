@@ -28,6 +28,7 @@ internal class KiotaCommandHandler : ICommandHandler
     public Option<List<string>> DeserializerOption { get;set; }
     public Option<bool> CleanOutputOption { get;set; }
     public Option<List<string>> StructuredMimeTypesOption { get;set; }
+    public Option<bool> RestStyleGeneration{ get; set; }
     public int Invoke(InvocationContext context)
     {
         return InvokeAsync(context).GetAwaiter().GetResult();
@@ -38,6 +39,7 @@ internal class KiotaCommandHandler : ICommandHandler
         GenerationLanguage language = context.ParseResult.GetValueForOption(LanguageOption);
         string openapi = context.ParseResult.GetValueForOption(DescriptionOption);
         bool backingStore = context.ParseResult.GetValueForOption(BackingStoreOption);
+        bool restStyleGeneration = context.ParseResult.GetValueForOption(RestStyleGeneration);
         bool includeAdditionalData = context.ParseResult.GetValueForOption(AdditionalDataOption);
         string className = context.ParseResult.GetValueForOption(ClassOption);
         LogLevel logLevel = context.ParseResult.GetValueForOption(LogLevelOption);
@@ -54,7 +56,8 @@ internal class KiotaCommandHandler : ICommandHandler
         Configuration.UsesBackingStore = backingStore;
         Configuration.IncludeAdditionalData = includeAdditionalData;
         Configuration.Language = language;
-        if(serializer?.Any() ?? false)
+        Configuration.RestStyleGeneration = restStyleGeneration;
+        if (serializer?.Any() ?? false)
             Configuration.Serializers = serializer.Select(x => x.TrimQuotes()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if(deserializer?.Any() ?? false)
             Configuration.Deserializers = deserializer.Select(x => x.TrimQuotes()).ToHashSet(StringComparer.OrdinalIgnoreCase);
