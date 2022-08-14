@@ -223,7 +223,7 @@ public class KiotaBuilder
     private CodeNamespace modelsNamespace;
     private string modelNamespacePrefixToTrim;
 
-    /// <summary>
+    /// <summary>d
     /// Convert UriSpace of OpenApiPathItems into conceptual SDK Code model 
     /// </summary>
     /// <param name="root">Root OpenApiUriSpaceNode of API to be generated</param>
