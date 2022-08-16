@@ -6,6 +6,7 @@ using Kiota.Builder.Extensions;
 using Kiota.Builder.OpenApiExtensions;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi.Services;
 
 namespace Kiota.Builder
 {
@@ -16,7 +17,7 @@ namespace Kiota.Builder
         //private StreamWriter modelWriter;
 
         private List<TSInterface> models = new List<TSInterface>();
-        private List<TSInterface> operations = new List<TSInterface>();
+        private List<TSOperation> operations = new List<TSOperation>();
         private List<string> urlWithOperations = new List<string>();
         private List<string> enumTypes = new List<string>();
 
@@ -36,15 +37,16 @@ namespace Kiota.Builder
 
            
 
-            //processPaths(openApiDocument.Paths);
+            processPaths(openApiDocument.Paths,outputFolder);
             ProcessComponents(openApiDocument.Components);
             writeComponents(outputFolder);
+            writeOperations(outputFolder);
         }
 
         private void writeComponents(string outputFolder)
         {
            
-            using (var modelWriter = new StreamWriter(outputFolder + (outputFolder.EndsWith("/") ? "models.ts" : "/operations.ts"))) {
+            using (var modelWriter = new StreamWriter(outputFolder + (outputFolder.EndsWith("/") ? "models.ts" : "/models.ts"))) {
 
                 try
                 {
@@ -68,19 +70,57 @@ namespace Kiota.Builder
                 catch (Exception connerr) { Console.WriteLine(connerr.Message); };
 
             }
+        
         }
 
-        //private void processPaths(OpenApiPaths openApiPaths)
-        //{
-        //    var count = 1;
-        //    foreach (var path in openApiPaths)
-        //    {
-        //        var pathAutoComplete = $"(api:'{path.Key}'):operation{count}";
-        //        apiWriter.WriteLine(pathAutoComplete);
-        //        var pathItemObject = path.Value;
-        //        GetOperationsForPath(pathItemObject.Operations, count++);
-        //    }
-        //}
+        private void processPaths(OpenApiPaths openApiPaths, string outputFolder)
+        {
+            using (var opWriter = new StreamWriter(outputFolder + (outputFolder.EndsWith("/") ? "apis.ts" : "/apis.ts")))
+            {
+
+                try
+                {
+                    var count = 1;
+                    foreach (var path in openApiPaths)
+                    {
+                        var pathAutoComplete = $"(api:'{path.Key}'):operation{count}";
+                        var pathItemObject = path.Value;
+                        var operation = OpenAPIOpertaionsProcesser.GetOperationsForPath(pathItemObject.Operations, count++, modelsUsings);
+                        operations.Add(operation);
+                    }
+                }
+                catch (Exception connerr) { Console.WriteLine(connerr.Message); };
+
+            }
+
+            
+        }
+
+        private void writeOperations(string outputFolder)
+        {
+            using (var opWriter = new StreamWriter(outputFolder + (outputFolder.EndsWith("/") ? "operations.ts" : "/operations.ts")))
+            {
+
+                try
+                {
+                    foreach (var operation in operations)
+                    {
+                        opWriter.WriteLine($"export  interface {operation.Name}{{");
+
+                        foreach (var prop in operation.operationWithParamString)
+                        {
+                            opWriter.WriteLine("   " + prop);
+                        }
+
+                        opWriter.WriteLine("}");
+
+                    }
+                }
+                catch (Exception connerr) { Console.WriteLine(connerr.Message); };
+
+            }
+
+        }
 
         //private void GetOperationsForPath(IDictionary<OperationType, OpenApiOperation> operations, int count)
         //{
@@ -135,7 +175,7 @@ namespace Kiota.Builder
                 var newOption = (optionDescription?.Name ?? enumValue).CleanupSymbolName();
                 if (!string.IsNullOrEmpty(newOption))
                 {
-                    Console.WriteLine(type+" "+newOption);
+                    //Console.WriteLine(type+" "+newOption);
                     type = type + (type.EndsWith("=") ? $"\"{ newOption}\"" : " | " + $"\"{newOption}\"");
                 }
 
@@ -195,7 +235,7 @@ namespace Kiota.Builder
                     {
                         unionString = !String.IsNullOrWhiteSpace(unionString) ? " | " + element.Type + arrayPrefix : element.Type + arrayPrefix;
                     }
-                    if (!String.IsNullOrWhiteSpace(element.Reference.Id))
+                    if (!String.IsNullOrWhiteSpace(element?.Reference?.Id))
                     {
                         var objectType = UtilTS.GetModelNameFromReference(element.Reference.Id) + arrayPrefix;
                         unionString = !String.IsNullOrWhiteSpace(unionString) ? " | " + objectType : objectType;
@@ -238,5 +278,15 @@ namespace Kiota.Builder
         {
             get; set;
         }
+    }
+
+    public class TSPathOperation
+    {
+        public string Path
+        {
+            get; set;
+        }
+
+        public TSOperation tSOperation { get; set; }
     }
 }
