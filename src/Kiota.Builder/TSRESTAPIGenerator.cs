@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Kiota.Builder.Extensions;
 using Kiota.Builder.OpenApiExtensions;
 using Microsoft.OpenApi.Any;
@@ -14,7 +13,7 @@ namespace Kiota.Builder
     {
         //private StreamWriter apiWriter;
         //private StreamWriter operationWriter;
-        private StreamWriter modelWriter;
+        //private StreamWriter modelWriter;
 
         private List<TSInterface> models = new List<TSInterface>();
         private List<TSInterface> operations = new List<TSInterface>();
@@ -35,26 +34,39 @@ namespace Kiota.Builder
             //this.operationWriter = new StreamWriter(operationStream);
 
 
-            using var modelStream = new FileStream(outputFolder + (outputFolder.EndsWith("/") ? "models.ts" : "/operations.ts"), FileMode.Create);
-
-            this.modelWriter = new StreamWriter(modelStream);
-
+           
 
             //processPaths(openApiDocument.Paths);
             ProcessComponents(openApiDocument.Components);
-            writeComponents();
+            writeComponents(outputFolder);
         }
 
-        private void writeComponents()
+        private void writeComponents(string outputFolder)
         {
-            foreach (var model in models) {
-                modelWriter.WriteLine($"export {model.Name}" +(string.IsNullOrWhiteSpace(model.Parent)? string.Empty: $" extends {model.Parent}" +"{"));
+           
+            using (var modelWriter = new StreamWriter(outputFolder + (outputFolder.EndsWith("/") ? "models.ts" : "/operations.ts"))) {
 
-                foreach (var prop in model.Properties) {
-                    modelWriter.WriteLine("   "+prop);
+                try
+                {
+                    foreach (var model in models)
+                    {
+                        modelWriter.WriteLine($"export  interface {model.Name}" + (string.IsNullOrWhiteSpace(model.Parent) ? string.Empty : $" extends {model.Parent}") + "{");
+
+                        foreach (var prop in model.Properties)
+                        {
+                            modelWriter.WriteLine("   " + prop);
+                        }
+
+                        modelWriter.WriteLine("}");
+
+                    }
+
+                    foreach (var e in enumTypes) {
+                        modelWriter.WriteLine("export type "+e);
+                    }
                 }
+                catch (Exception connerr) { Console.WriteLine(connerr.Message); };
 
-                modelWriter.WriteLine("}");
             }
         }
 
@@ -97,7 +109,7 @@ namespace Kiota.Builder
         {
             if (openApiSchema.Enum != null && openApiSchema.Enum.Any())
             {
-                var type = ModelNameConstruction(modelName) + " =";
+                var type = UtilTS.ModelNameConstruction(modelName) + " =";
 
 
                 SetEnumOptions(openApiSchema, type);
@@ -108,7 +120,7 @@ namespace Kiota.Builder
             {
                 writeModel(modelName, openApiSchema);
             }
-            return ModelNameConstruction(modelName);
+            return UtilTS.ModelNameConstruction(modelName);
         }
 
         private void SetEnumOptions(OpenApiSchema schema, string type)
@@ -123,7 +135,8 @@ namespace Kiota.Builder
                 var newOption = (optionDescription?.Name ?? enumValue).CleanupSymbolName();
                 if (!string.IsNullOrEmpty(newOption))
                 {
-                    type = type.EndsWith("=") ? newOption : " | " + newOption;
+                    Console.WriteLine(type+" "+newOption);
+                    type = type + (type.EndsWith("=") ? $"\"{ newOption}\"" : " | " + $"\"{newOption}\"");
                 }
 
             }
@@ -131,29 +144,12 @@ namespace Kiota.Builder
             enumTypes.Add(type);
         }
 
-
-        private string GetModelNameFromReference(string refValue)
-        {
-            var name = refValue.Split("/").Last();
-            return ModelNameConstruction(name);
-        }
-
-        private string ModelNameConstruction(string modelName)
-        {
-            var arr = modelName.Split(".");
-            foreach (var str in arr)
-            {
-                str.ToFirstCharacterUpperCase();
-            }
-            return string.Concat(arr);
-        }
-
         private void writeModel(string modelKey, OpenApiSchema model)
         {
             var parent = "";
             if (model.AllOf != null && model.AllOf.Any())
             {
-                parent = GetModelNameFromReference(model.AllOf.First().Reference.Id);
+                parent = UtilTS.GetModelNameFromReference(model.AllOf.First().Reference.Id);
 
                 //parent = model.allOf[0].$ref.replace(prefix + namespacePrefix, "");
                 model = model.AllOf.Last();
@@ -161,14 +157,14 @@ namespace Kiota.Builder
             }
 
             var newInter = new TSInterface();
-            newInter.Name = modelKey;
+            newInter.Name = UtilTS.ModelNameConstruction(modelKey);
             newInter.Parent = parent;
             //const modelName = ModelNaming(`microsoft.graph.${namespacePrefix}`);
             models.Add(newInter);
             foreach (var key in model.Properties)
             {
                 var property = key.Key.Contains("@odata") ? $"`{key}`" : key.Key;
-                var prop = $"{property}?: ${returnPropertyType(key.Value, false)}";
+                var prop = $"{property}?: {returnPropertyType(key.Value, false)}";
                 newInter.Properties.Add(prop);
             }
         }
@@ -180,11 +176,11 @@ namespace Kiota.Builder
             {
                 arrayPrefix = "[]";
             }
-            if (property.Type == "string")
+            if (string.Equals(property.Type, "string"))
             {
                 return "string" + arrayPrefix;
             }
-            if (property.Type == "integer")
+            if (string.Equals(property.Type,  "integer"))
             {
                 return "number" + arrayPrefix;
             }
@@ -201,13 +197,13 @@ namespace Kiota.Builder
                     }
                     if (!String.IsNullOrWhiteSpace(element.Reference.Id))
                     {
-                        var objectType = GetModelNameFromReference(element.Reference.Id) + arrayPrefix;
+                        var objectType = UtilTS.GetModelNameFromReference(element.Reference.Id) + arrayPrefix;
                         unionString = !String.IsNullOrWhiteSpace(unionString) ? " | " + objectType : objectType;
                     }
                 }
                 return unionString;
             }
-            if (property.Type == "boolean")
+            if (string.Equals(property.Type, "boolean"))
             {
                 return "boolean" + arrayPrefix;
             }
@@ -217,9 +213,9 @@ namespace Kiota.Builder
                 return returnPropertyType(property.Items, true);
 
             }
-            if (!String.IsNullOrWhiteSpace(property.Reference.Id))
+            if (!String.IsNullOrWhiteSpace(property?.Reference?.Id))
             {
-                return GetModelNameFromReference(property.Reference.Id) + arrayPrefix;
+                return UtilTS.GetModelNameFromReference(property.Reference.Id) + arrayPrefix;
             }
 
             return "unknown";
