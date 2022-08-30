@@ -11,6 +11,7 @@ using Kiota.Builder.CodeRenderers;
 using Kiota.Builder.Exceptions;
 using Kiota.Builder.Extensions;
 using Kiota.Builder.OpenApiExtensions;
+using Kiota.Builder.Processors;
 using Kiota.Builder.Refiners;
 using Kiota.Builder.Writers;
 using Microsoft.Extensions.Logging;
@@ -62,10 +63,10 @@ public class KiotaBuilder
         StopLogAndReset(sw, "step 1 - reading the stream - took");
 
         // Step 2 - Parse OpenAPI
-        sw.Start();
+        sw.Start(); 
         openApiDocument = CreateOpenApiDocument(input);
         StopLogAndReset(sw, "step 2 - parsing the document - took");
-        if (config.RestStyleGeneration) 
+        if (config.RestStyleGeneration ) // and check languague typescript
         {
             Console.WriteLine("command here");
             var restGen = new TSRESTAPIGenerator();

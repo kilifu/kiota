@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Kiota.Builder.Extensions;
 
-namespace Kiota.Builder
+namespace Kiota.Builder.Processors
 {
     public class UtilTS
     {
