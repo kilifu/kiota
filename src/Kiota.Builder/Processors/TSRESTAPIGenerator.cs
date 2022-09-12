@@ -72,7 +72,9 @@ namespace Kiota.Builder.Processors
                         operationUsings.Add(operation.Name);
                     }
                 }
-                catch (Exception connerr) { Console.WriteLine(connerr.Message); };
+                catch (Exception exception) { 
+                    Console.WriteLine(exception.Message); 
+                };
 
             }
         }

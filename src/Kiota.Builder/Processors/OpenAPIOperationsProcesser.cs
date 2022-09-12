@@ -15,7 +15,9 @@ namespace Kiota.Builder.Processors
             foreach (var operation in operations)
             {
                 var operationLine = "";
-                operationLine = $"{operation.Key}({ConstructInQueryParamList(operation.Value?.RequestBody, refListsToImport)}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
+                var requestBodyPart = operation.Value?.RequestBody != null ? ConstructInQueryParamList(operation.Value?.RequestBody, refListsToImport) : string.Empty;
+                /**   Example - - - -> post(requestBody: bodyType): returnType[] ***/
+                operationLine = $"{operation.Key}({requestBodyPart}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
                 op.operationWithParamString.Add(operationLine);
             }
             return op;
@@ -23,74 +25,60 @@ namespace Kiota.Builder.Processors
 
         private static string ConstructInQueryParamList(OpenApiRequestBody requestBody, HashSet<string> refListsToImport)
         {
-            var queryParam = "";
             var requestBodySchema = requestBody?.Content?.FirstOrDefault().Value.Schema;
 
             var reference = requestBodySchema?.Reference?.Id;
             if (!string.IsNullOrWhiteSpace(reference))
             {
                 refListsToImport.Add(UtilTS.GetModelNameFromReference(reference));
-                return "requestBody:"+UtilTS.GetModelNameFromReference(reference);
+                return "requestBody:" + UtilTS.GetModelNameFromReference(reference);
             }
 
-            
             if (requestBodySchema != null)
             {
-            
-                    var schema = OpenAPISchemaProcesser.WriteObject("", requestBodySchema);
-                    if (schema != null)
-                    {
-                        string s = "{";
-                        foreach (var p in schema.Properties)
-                        {
-                            s = s + p + ",";
-                        }
-                        s = s + "}";
-
-
-                        return "requestBody:" + s;
-                    }
-                
+                var schema = OpenAPISchemaProcesser.CreateTSInterfaceFromSchema("", requestBodySchema);
+                if (schema != null)
+                {
+                    return "requestBody:" + OpenAPISchemaProcesser.ConstructRawObject(schema);
+                }
             }
 
             return "";
-
-            //return queryParam;
         }
+
         private static string GetReturnTypeOfOperation(OpenApiResponses responses, HashSet<string> refListsToImport)
         {
             var successResponse = responses.FirstOrDefault(x => x.Key.StartsWith("2")).Value;
-
-            if (!successResponse.Content.Any()) {
+            // Return with no content and only description
+            if (!successResponse.Content.Any())
+            {
                 return $"\"{successResponse.Description}\"";
             }
+
             var reference = successResponse.Reference?.Id;
             if (!string.IsNullOrWhiteSpace(reference))
             {
-                refListsToImport.Add(UtilTS.GetModelNameFromReference(reference));
-                return UtilTS.GetModelNameFromReference(reference);
+                var modelName = UtilTS.GetModelNameFromReference(reference);
+                refListsToImport.Add(modelName);
+                return modelName;
             }
 
             var mediaType = successResponse.Content.FirstOrDefault().Value;
             if (mediaType != null)
             {
-                var refer = mediaType.Schema?.Reference?.Id;
-                if (!string.IsNullOrWhiteSpace(refer))
+                var mediaReference = mediaType.Schema?.Reference?.Id;
+                if (!string.IsNullOrWhiteSpace(mediaReference))
                 {
-                    refListsToImport.Add(UtilTS.GetModelNameFromReference(refer));
-                    return UtilTS.GetModelNameFromReference(refer);
+                    var modelName = UtilTS.GetModelNameFromReference(mediaReference);
+                    refListsToImport.Add(modelName);
+                    return modelName;
                 }
-                else {
-                    var schema = OpenAPISchemaProcesser.WriteObject("", mediaType.Schema);
-                    if (schema != null) {
-                        string s = "{";
-                        foreach (var p in schema.Properties) {
-                            s = s + p + ",";
-                        }
-                        s = s + "}";
-
-
-                        return s;
+                else
+                {
+                    var schema = OpenAPISchemaProcesser.CreateTSInterfaceFromSchema("", mediaType.Schema);
+                    if (schema != null)
+                    {
+                        return OpenAPISchemaProcesser.ConstructRawObject(schema);
                     }
                 }
             }

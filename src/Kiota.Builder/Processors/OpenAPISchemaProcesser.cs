@@ -14,17 +14,17 @@ namespace Kiota.Builder.Processors
         {
             if (openApiSchema.Enum != null && openApiSchema.Enum.Any())
             {
-                var newEnum = SetEnumOptions(openApiSchema, UtilTS.ModelNameConstruction(modelName));
+                var newEnum = ConstructTSTypeFromEnum(openApiSchema, UtilTS.ModelNameConstruction(modelName));
                 enumTypes.Add($"{newEnum.Name} = {newEnum.Value}");
             }
             else
             {
-                models.Add(WriteObject(modelName, openApiSchema));
+                models.Add(CreateTSInterfaceFromSchema(modelName, openApiSchema));
             }
             return UtilTS.ModelNameConstruction(modelName);
         }
 
-        public static TSEnum SetEnumOptions(OpenApiSchema schema, string enumName)
+        public static TSEnum ConstructTSTypeFromEnum(OpenApiSchema schema, string enumName)
         {
             var newEnum = new TSEnum();
             newEnum.Name = enumName;
@@ -45,7 +45,7 @@ namespace Kiota.Builder.Processors
             return newEnum;
         }
 
-        public static TSInterface WriteObject(string modelKey, OpenApiSchema model)
+        public static TSInterface CreateTSInterfaceFromSchema(string modelKey, OpenApiSchema model)
         {
             var parent = "";
             if (model.AllOf != null && model.AllOf.Any())
@@ -85,23 +85,31 @@ namespace Kiota.Builder.Processors
                 return "number" + arrayPrefix;
             }
 
+            if (string.Equals(property.Type, "object")) {
+                var schema = CreateTSInterfaceFromSchema("", property);
+                return ConstructRawObject(schema);
+            }
+
             if (property.AnyOf != null && property.AnyOf.Any())
             {                                                                                                           
                 var unionString = "";
                 foreach (var element in property.AnyOf)
                 {
-                    if (!string.IsNullOrWhiteSpace(element.Type))
-                    {
-                        unionString = unionString + (!string.IsNullOrWhiteSpace(unionString) ?  " | " + returnPropertyType(element, isArray) : returnPropertyType(element, isArray)) + arrayPrefix; // if element type == object -- get element type
-                    }
+                   
                     if (!string.IsNullOrWhiteSpace(element?.Reference?.Id))
                     {
                         var objectType = UtilTS.GetModelNameFromReference(element.Reference.Id) + arrayPrefix;
                         unionString = !string.IsNullOrWhiteSpace(unionString) ? unionString + " | " + objectType : objectType;
                     }
+                    else if (!string.IsNullOrWhiteSpace(element.Type))
+                    {
+                        var returnType = returnPropertyType(element, isArray);
+                        unionString = unionString + (!string.IsNullOrWhiteSpace(unionString) ? " | " + returnType : returnType); // if element type == object -- get element type
+                    }
                 }
                 return unionString;
             }
+
             if (string.Equals(property.Type, "boolean"))
             {
                 return "boolean" + arrayPrefix;
@@ -119,6 +127,22 @@ namespace Kiota.Builder.Processors
             }
 
             return "unknown";
+        }
+
+        /**
+         * Construct TS/JS object fromm a model. 
+         * Some cases the return type or request body is of an object instead of a reference to a model.
+         */
+        public static string ConstructRawObject(TSInterface model)
+        {
+            string objectBody = "{";
+            foreach (var prop in model.Properties)
+            {
+                objectBody = objectBody + prop + ",";
+            }
+            objectBody = objectBody + "}";
+
+            return objectBody;
         }
     }
 }
