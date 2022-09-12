@@ -36,7 +36,7 @@ namespace Kiota.Builder.Processors
 
             if (requestBodySchema != null)
             {
-                var schema = OpenAPISchemaProcesser.CreateTSInterfaceFromSchema("", requestBodySchema);
+                var schema = OpenAPISchemaProcesser.CreateTSInterfaceFromSchema("", requestBodySchema, refListsToImport);
                 if (schema != null)
                 {
                     return "requestBody:" + OpenAPISchemaProcesser.ConstructRawObject(schema);
@@ -75,7 +75,7 @@ namespace Kiota.Builder.Processors
                 }
                 else
                 {
-                    var schema = OpenAPISchemaProcesser.CreateTSInterfaceFromSchema("", mediaType.Schema);
+                    var schema = OpenAPISchemaProcesser.CreateTSInterfaceFromSchema("", mediaType.Schema, refListsToImport);
                     if (schema != null)
                     {
                         return OpenAPISchemaProcesser.ConstructRawObject(schema);

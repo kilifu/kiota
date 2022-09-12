@@ -19,7 +19,7 @@ namespace Kiota.Builder.Processors
             }
             else
             {
-                models.Add(CreateTSInterfaceFromSchema(modelName, openApiSchema));
+                models.Add(CreateTSInterfaceFromSchema(modelName, openApiSchema, null));
             }
             return UtilTS.ModelNameConstruction(modelName);
         }
@@ -45,7 +45,7 @@ namespace Kiota.Builder.Processors
             return newEnum;
         }
 
-        public static TSInterface CreateTSInterfaceFromSchema(string modelKey, OpenApiSchema model)
+        public static TSInterface CreateTSInterfaceFromSchema(string modelKey, OpenApiSchema model, HashSet<string> refListsToImport)
         {
             var parent = "";
             if (model.AllOf != null && model.AllOf.Any())
@@ -62,14 +62,14 @@ namespace Kiota.Builder.Processors
             foreach (var key in model.Properties)
             {
                 var property = key.Key.Contains("@odata") ? $"\"{key.Key}\"" : key.Key;
-                var prop = $"{property}?: {returnPropertyType(key.Value, false)}";
+                var prop = $"{property}?: {returnPropertyType(key.Value, false, refListsToImport)}";
                 newInter.Properties.Add(prop);
             }
 
             return newInter;
         }
 
-        private static string returnPropertyType(OpenApiSchema property, bool isArray)
+        private static string returnPropertyType(OpenApiSchema property, bool isArray, HashSet<string> refListsToImport)
         {
             var arrayPrefix = "";
             if (isArray)
@@ -80,13 +80,13 @@ namespace Kiota.Builder.Processors
             {
                 return "string" + arrayPrefix;
             }
-            if (string.Equals(property.Type, "integer"))
+            if (string.Equals(property.Type, "integer") || string.Equals(property.Type, "number"))
             {
                 return "number" + arrayPrefix;
             }
 
             if (string.Equals(property.Type, "object")) {
-                var schema = CreateTSInterfaceFromSchema("", property);
+                var schema = CreateTSInterfaceFromSchema("", property, refListsToImport);
                 return ConstructRawObject(schema);
             }
 
@@ -98,14 +98,21 @@ namespace Kiota.Builder.Processors
                    
                     if (!string.IsNullOrWhiteSpace(element?.Reference?.Id))
                     {
-                        var objectType = UtilTS.GetModelNameFromReference(element.Reference.Id) + arrayPrefix;
-                        unionString = !string.IsNullOrWhiteSpace(unionString) ? unionString + " | " + objectType : objectType;
+                        var modelName = UtilTS.GetModelNameFromReference(element.Reference.Id);
+                        refListsToImport?.Add(modelName);
+                        var objectType = modelName + arrayPrefix;
+                        unionString = !string.IsNullOrWhiteSpace(unionString) ? unionString + " | " + objectType : objectType;                   
                     }
                     else if (!string.IsNullOrWhiteSpace(element.Type))
                     {
-                        var returnType = returnPropertyType(element, isArray);
-                        unionString = unionString + (!string.IsNullOrWhiteSpace(unionString) ? " | " + returnType : returnType); // if element type == object -- get element type
-                    }
+                        
+                        var returnType = returnPropertyType(element, isArray, refListsToImport);
+                        if (returnType != "{}")
+                        {
+                            //check why 2 objects in any for request body
+                            unionString = unionString + (!string.IsNullOrWhiteSpace(unionString) ? " | " + returnType : returnType); // if element type == object -- get element type
+                        }
+                        }
                 }
                 return unionString;
             }
@@ -117,7 +124,7 @@ namespace Kiota.Builder.Processors
 
             if (property.Type == "array")
             {
-                return returnPropertyType(property.Items, true);
+                return returnPropertyType(property.Items, true, refListsToImport);
 
             }
             // Separate method for reference object
