@@ -14,7 +14,6 @@ namespace Kiota.Builder.Processors
         {
             if (openApiSchema.Enum != null && openApiSchema.Enum.Any())
             {
-               
                 var newEnum = SetEnumOptions(openApiSchema, UtilTS.ModelNameConstruction(modelName));
                 enumTypes.Add($"{newEnum.Name} = {newEnum.Value}");
             }
@@ -55,7 +54,6 @@ namespace Kiota.Builder.Processors
 
                 //parent = model.allOf[0].$ref.replace(prefix + namespacePrefix, "");
                 model = model.AllOf.Last();
-
             }
 
             var newInter = new TSInterface();
@@ -63,7 +61,7 @@ namespace Kiota.Builder.Processors
             newInter.Parent = parent;
             foreach (var key in model.Properties)
             {
-                var property = key.Key.Contains("@odata") ? $"`{key}`" : key.Key;
+                var property = key.Key.Contains("@odata") ? $"\"{key.Key}\"" : key.Key;
                 var prop = $"{property}?: {returnPropertyType(key.Value, false)}";
                 newInter.Properties.Add(prop);
             }
@@ -88,18 +86,18 @@ namespace Kiota.Builder.Processors
             }
 
             if (property.AnyOf != null && property.AnyOf.Any())
-            {
+            {                                                                                                           
                 var unionString = "";
                 foreach (var element in property.AnyOf)
                 {
                     if (!string.IsNullOrWhiteSpace(element.Type))
                     {
-                        unionString = !string.IsNullOrWhiteSpace(unionString) ? " | " + element.Type + arrayPrefix : element.Type + arrayPrefix;
+                        unionString = unionString + (!string.IsNullOrWhiteSpace(unionString) ?  " | " + returnPropertyType(element, isArray) : returnPropertyType(element, isArray)) + arrayPrefix; // if element type == object -- get element type
                     }
                     if (!string.IsNullOrWhiteSpace(element?.Reference?.Id))
                     {
                         var objectType = UtilTS.GetModelNameFromReference(element.Reference.Id) + arrayPrefix;
-                        unionString = !string.IsNullOrWhiteSpace(unionString) ? " | " + objectType : objectType;
+                        unionString = !string.IsNullOrWhiteSpace(unionString) ? unionString + " | " + objectType : objectType;
                     }
                 }
                 return unionString;

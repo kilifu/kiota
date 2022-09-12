@@ -21,14 +21,6 @@ namespace Kiota.Builder.Processors
 
         public void generate(string outputFolder, OpenApiDocument openApiDocument)
         {
-            //using var stream = new FileStream(outputFolder + (outputFolder.EndsWith("/") ? "apis.ts" : "/apis.ts"), FileMode.Create);
-
-            //this.apiWriter = new StreamWriter(stream);
-
-            //using var operationStream = new FileStream(outputFolder + (outputFolder.EndsWith("/") ? "operations.ts" : "/operations.ts"), FileMode.Create);
-
-            //this.operationWriter = new StreamWriter(operationStream);
-
             processPaths(openApiDocument.Paths, outputFolder);
             ProcessComponents(openApiDocument.Components);
             writeApis(outputFolder);
@@ -44,7 +36,7 @@ namespace Kiota.Builder.Processors
                 {
                     foreach (var model in models)
                     {
-                        modelWriter.WriteLine($"export  interface {model.Name}" + (string.IsNullOrWhiteSpace(model.Parent) ? string.Empty : $" extends {model.Parent}") + "{");
+                        modelWriter.WriteLine($"export interface {model.Name}" + (string.IsNullOrWhiteSpace(model.Parent) ? string.Empty : $" extends {model.Parent}") + "{");
 
                         foreach (var prop in model.Properties)
                         {
@@ -91,12 +83,15 @@ namespace Kiota.Builder.Processors
             {
                 try
                 {
-                    apiWriter.WriteLine("import {");
+                    apiWriter.Write("import {");
+                    var imp = "";
                     foreach (var u in operationUsings)
                     {
-                        apiWriter.Write($", {u}");
+                        imp = imp + ""+ (String.IsNullOrWhiteSpace(imp) ? u : $", {u}");
+                        
 
                     }
+                    apiWriter.Write(imp);
                     apiWriter.WriteLine("} from \"./operations\"");
                     apiWriter.WriteLine("export interface Apis {");
                     foreach (var api in urlWithOperations)
@@ -112,20 +107,23 @@ namespace Kiota.Builder.Processors
         {
             using (var opWriter = new StreamWriter(outputFolder + (outputFolder.EndsWith("/") ? "operations.ts" : "/operations.ts")))
             {
-
                 try
                 {
-                    opWriter.WriteLine("import {");
+                    opWriter.Write("import {");
+                    
+                    var imp = "";
                     foreach (var u in modelsUsings)
                     {
-                        opWriter.Write($", {u}");
+                        imp = imp + "" + (String.IsNullOrWhiteSpace(imp) ? u : $", {u}");
+
 
                     }
+                    opWriter.Write(imp);
                     opWriter.WriteLine("} from \"./models\"");
 
                     foreach (var operation in operations)
                     {
-                        opWriter.WriteLine($"export  interface {operation.Name}{{");
+                        opWriter.WriteLine($"export interface {operation.Name}{{");
 
                         foreach (var prop in operation.operationWithParamString)
                         {
@@ -137,26 +135,9 @@ namespace Kiota.Builder.Processors
                     }
                 }
                 catch (Exception connerr) { Console.WriteLine(connerr.Message); };
-
             }
-
         }
 
-        //private void GetOperationsForPath(IDictionary<OperationType, OpenApiOperation> operations, int count)
-        //{
-        //    var s = operations.Where(k => k.Key == OperationType.Get);
-        //    operationWriter.WriteLine($"export interface operation{count}{{");
-        //    foreach (var operation in operations)
-        //    {
-        //        operationWriter.WriteLine($"{operation.Key.GetType()}:(operation.Value.Responses)");
-        //    }
-        //    operationWriter.WriteLine("}");
-        //}
-
-
-        /**
-         * Components , responses and models
-         */
         private void ProcessComponents(OpenApiComponents openApiComponents)
         {
             foreach (var schema in openApiComponents.Schemas)
@@ -190,7 +171,6 @@ namespace Kiota.Builder.Processors
         {
             get; set;
         }
-
 
         public string Value
         {

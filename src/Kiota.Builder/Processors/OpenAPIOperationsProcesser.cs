@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using Kiota.Builder.Extensions;
-using Kiota.Builder.OpenApiExtensions;
-using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 
 namespace Kiota.Builder.Processors
@@ -16,20 +11,51 @@ namespace Kiota.Builder.Processors
             var op = new TSOperation();
 
             op.Name = "operation" + count;
-            var s = operations.Where(k => k.Key == OperationType.Get);
 
             foreach (var operation in operations)
             {
                 var operationLine = "";
-                operationLine = $"{operation.Key}():{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
+                operationLine = $"{operation.Key}({ConstructInQueryParamList(operation.Value?.RequestBody, refListsToImport)}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
                 op.operationWithParamString.Add(operationLine);
             }
-
             return op;
         }
 
-        private static void ConstructInQueryParamList()
+        private static string ConstructInQueryParamList(OpenApiRequestBody requestBody, HashSet<string> refListsToImport)
         {
+            var queryParam = "";
+            var requestBodySchema = requestBody?.Content?.FirstOrDefault().Value.Schema;
+
+            var reference = requestBodySchema?.Reference?.Id;
+            if (!string.IsNullOrWhiteSpace(reference))
+            {
+                refListsToImport.Add(UtilTS.GetModelNameFromReference(reference));
+                return "requestBody:"+UtilTS.GetModelNameFromReference(reference);
+            }
+
+            
+            if (requestBodySchema != null)
+            {
+            
+                    var schema = OpenAPISchemaProcesser.WriteObject("", requestBodySchema);
+                    if (schema != null)
+                    {
+                        string s = "{";
+                        foreach (var p in schema.Properties)
+                        {
+                            s = s + p + ",";
+                        }
+                        s = s + "}";
+
+
+                        return "requestBody:" + s;
+                    }
+                
+            }
+
+            return "";
+
+            //return queryParam;
         }
         private static string GetReturnTypeOfOperation(OpenApiResponses responses, HashSet<string> refListsToImport)
         {
@@ -45,7 +71,7 @@ namespace Kiota.Builder.Processors
                 return UtilTS.GetModelNameFromReference(reference);
             }
 
-            var mediaType = successResponse.Content.FirstOrDefault(x => x.Key == "application/json").Value;
+            var mediaType = successResponse.Content.FirstOrDefault().Value;
             if (mediaType != null)
             {
                 var refer = mediaType.Schema?.Reference?.Id;
@@ -53,6 +79,19 @@ namespace Kiota.Builder.Processors
                 {
                     refListsToImport.Add(UtilTS.GetModelNameFromReference(refer));
                     return UtilTS.GetModelNameFromReference(refer);
+                }
+                else {
+                    var schema = OpenAPISchemaProcesser.WriteObject("", mediaType.Schema);
+                    if (schema != null) {
+                        string s = "{";
+                        foreach (var p in schema.Properties) {
+                            s = s + p + ",";
+                        }
+                        s = s + "}";
+
+
+                        return s;
+                    }
                 }
             }
 
@@ -70,6 +109,11 @@ namespace Kiota.Builder.Processors
         public List<string> operationWithParamString = new List<string>();
 
         public string ReturnType
+        {
+            get; set;
+        }
+
+        public string QueryParamString
         {
             get; set;
         }
