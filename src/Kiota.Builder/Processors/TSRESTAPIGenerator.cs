@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.OpenApi.Models;
 
 namespace Kiota.Builder.Processors
@@ -65,15 +66,37 @@ namespace Kiota.Builder.Processors
                     var count = 1;
                     foreach (var path in openApiPaths)
                     {
-                        urlWithOperations.Add($"(api:\"{path.Key}\"):operation{count}");
+                        var url = path.Key;
+
+
+                        var apiPath = $"(api:\"{url}\"";
+                        var regex = new Regex("{(.*?)}");
+                        var matches = regex.Matches(url);
+                        foreach (Match match in matches)
+                        {
+                            var s = match.Groups[1].Value.Split(",");
+
+                            if (s != null && s.Length > 0)
+                            {
+                                foreach (var id in s)
+                                {
+                                    apiPath = apiPath + "," + id.Replace("-", string.Empty) + ": string";
+                                }
+                            }
+                        }
+
+                        apiPath = apiPath + $"):operation{count},";
+
+                        urlWithOperations.Add(apiPath);
                         var pathItemObject = path.Value;
                         var operation = OpenAPIOperationsProcesser.GetOperationsForPath(pathItemObject.Operations, count++, modelsUsings);
                         operations.Add(operation);
                         operationUsings.Add(operation.Name);
                     }
                 }
-                catch (Exception exception) { 
-                    Console.WriteLine(exception.Message); 
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception.Message);
                 };
 
             }
@@ -89,8 +112,8 @@ namespace Kiota.Builder.Processors
                     var imp = "";
                     foreach (var u in operationUsings)
                     {
-                        imp = imp + ""+ (String.IsNullOrWhiteSpace(imp) ? u : $", {u}");
-                        
+                        imp = imp + "" + (String.IsNullOrWhiteSpace(imp) ? u : $", {u}");
+
 
                     }
                     apiWriter.Write(imp);
@@ -112,7 +135,7 @@ namespace Kiota.Builder.Processors
                 try
                 {
                     opWriter.Write("import {");
-                    
+
                     var imp = "";
                     foreach (var u in modelsUsings)
                     {
