@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Kiota.Builder.Extensions;
 using Microsoft.OpenApi.Models;
 
 namespace Kiota.Builder.Processors
@@ -17,7 +18,7 @@ namespace Kiota.Builder.Processors
                 var operationLine = "";
                 var requestBodyPart = operation.Value?.RequestBody != null ? ConstructInQueryParamList(operation.Value?.RequestBody, refListsToImport) : string.Empty;
                 /**   Example - - - -> post(requestBody: bodyType): returnType[] ***/
-                operationLine = $"{operation.Key}({requestBodyPart}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
+                operationLine = $"{operation.Key.ToString().ToFirstCharacterLowerCase()}({requestBodyPart}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
                 op.operationWithParamString.Add(operationLine);
             }
             return op;

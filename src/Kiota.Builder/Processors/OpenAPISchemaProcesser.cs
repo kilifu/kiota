@@ -61,8 +61,8 @@ namespace Kiota.Builder.Processors
             newInter.Parent = parent;
             foreach (var key in model.Properties)
             {
-                var property = key.Key.Contains("@odata") ? $"\"{key.Key}\"" : key.Key;
-                var prop = $"{property}?: {returnPropertyType(key.Value, false, refListsToImport)}";
+                var property = key.Key.Contains("@odata") || key.Key.Equals("Date") ? $"\"{key.Key}\"" : key.Key;
+                var prop = $"{property.Replace("-", string.Empty)}?: {returnPropertyType(key.Value, false, refListsToImport)}";
                 newInter.Properties.Add(prop);
             }
 
