@@ -18,7 +18,9 @@ namespace Kiota.Builder.Processors
                 var operationLine = "";
                 var requestBodyPart = operation.Value?.RequestBody != null ? ConstructInQueryParamList(operation.Value?.RequestBody, refListsToImport) : string.Empty;
                 /**   Example - - - -> post(requestBody: bodyType): returnType[] ***/
-                operationLine = $"{operation.Key.ToString().ToFirstCharacterLowerCase()}({requestBodyPart}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
+
+                var getKeyParam = operation.Key == OperationType.Get ? "headers?: Record<string, string>, oDataQueryOptions?: QueryOptions, callback?: GraphRequestCallback" : $"{requestBodyPart}{(string.IsNullOrWhiteSpace(requestBodyPart)?string.Empty: ",")} headers: Record<string, string>, callback?: GraphRequestCallback";
+                operationLine = $"{operation.Key.ToString().ToFirstCharacterLowerCase()}({getKeyParam}):{GetReturnTypeOfOperation(operation.Value.Responses, refListsToImport)}";
                 op.operationWithParamString.Add(operationLine);
             }
             return op;

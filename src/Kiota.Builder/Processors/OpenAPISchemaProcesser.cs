@@ -17,11 +17,23 @@ namespace Kiota.Builder.Processors
                 var newEnum = ConstructTSTypeFromEnum(openApiSchema, UtilTS.ModelNameConstruction(modelName));
                 enumTypes.Add($"{newEnum.Name} = {newEnum.Value}");
             }
+            else if (!String.IsNullOrWhiteSpace(openApiSchema.Type) && (openApiSchema.Properties == null || !openApiSchema.Properties.Any()))
+            {
+                var type = ConstructTSTypeForNonObjectPrimitives(openApiSchema, modelName);
+                enumTypes.Add(type);
+            }
             else
             {
                 models.Add(CreateTSInterfaceFromSchema(modelName, openApiSchema, null));
             }
             return UtilTS.ModelNameConstruction(modelName);
+        }
+
+        public static string ConstructTSTypeForNonObjectPrimitives(OpenApiSchema schema, string modelName)
+        {
+            var type = $"{UtilTS.ModelNameConstruction(modelName)}= {returnPropertyType(schema, false, null)};";
+
+            return type;
         }
 
         public static TSEnum ConstructTSTypeFromEnum(OpenApiSchema schema, string enumName)
@@ -39,7 +51,7 @@ namespace Kiota.Builder.Processors
                 if (!string.IsNullOrEmpty(newOption))
                 {
                     //Console.WriteLine(type+" "+newOption);
-                    newEnum.Value = String.IsNullOrWhiteSpace(newEnum.Value) ? $"\"{newOption}\"" : newEnum.Value+ " | " + $"\"{newOption}\"";
+                    newEnum.Value = String.IsNullOrWhiteSpace(newEnum.Value) ? $"\"{newOption}\"" : newEnum.Value + " | " + $"\"{newOption}\"";
                 }
             }
             return newEnum;
@@ -85,34 +97,35 @@ namespace Kiota.Builder.Processors
                 return "number" + arrayPrefix;
             }
 
-            if (string.Equals(property.Type, "object")) {
+            if (string.Equals(property.Type, "object"))
+            {
                 var schema = CreateTSInterfaceFromSchema("", property, refListsToImport);
                 return ConstructRawObject(schema);
             }
 
             if (property.AnyOf != null && property.AnyOf.Any())
-            {                                                                                                           
+            {
                 var unionString = "";
                 foreach (var element in property.AnyOf)
                 {
-                   
+
                     if (!string.IsNullOrWhiteSpace(element?.Reference?.Id))
                     {
                         var modelName = UtilTS.GetModelNameFromReference(element.Reference.Id);
                         refListsToImport?.Add(modelName);
                         var objectType = modelName + arrayPrefix;
-                        unionString = !string.IsNullOrWhiteSpace(unionString) ? unionString + " | " + objectType : objectType;                   
+                        unionString = !string.IsNullOrWhiteSpace(unionString) ? unionString + " | " + objectType : objectType;
                     }
                     else if (!string.IsNullOrWhiteSpace(element.Type))
                     {
-                        
+
                         var returnType = returnPropertyType(element, isArray, refListsToImport);
                         if (returnType != "{}")
                         {
                             //check why 2 objects in any for request body
                             unionString = unionString + (!string.IsNullOrWhiteSpace(unionString) ? " | " + returnType : returnType); // if element type == object -- get element type
                         }
-                        }
+                    }
                 }
                 return unionString;
             }
