@@ -1,7 +1,7 @@
-
+﻿
 
 using System;
-
+using System.Linq;
 using Kiota.Builder.CodeDOM;
 using Kiota.Builder.Extensions;
 
@@ -21,12 +21,22 @@ public class CodeFunctionWriter : BaseElementWriter<CodeFunction, TypeScriptConv
         ArgumentNullException.ThrowIfNull(writer);
         if(codeElement.Parent is not CodeNamespace) throw new InvalidOperationException("the parent of a function should be a namespace");
 
+
         var returnType = conventions.GetTypeString(codeElement.OriginalLocalMethod.ReturnType, codeElement);
         _codeUsingWriter.WriteCodeElement(codeElement.StartBlock.Usings, codeElement.GetImmediateParentOfType<CodeNamespace>(), writer);
         CodeMethodWriter.WriteMethodPrototypeInternal(codeElement.OriginalLocalMethod, writer, returnType, false, conventions, true);
         writer.IncreaseIndent();
         CodeMethodWriter.WriteDefensiveStatements(codeElement.OriginalLocalMethod, writer);
         WriteFactoryMethodBody(codeElement, returnType, writer);
+    }
+
+    private void  WriteDeserializerMethod(CodeFunction codeElement, LanguageWriter writer)
+    {
+        //var codeInterface = codeElement.OriginalLocalMethod.Parameters.FirstOrDefault().GetType.get as CodeInterface;
+        //foreach (var otherProp in parentClass.GetPropertiesOfKind(CodePropertyKind.Custom).Where(static x => !x.ExistsInBaseType))
+        //{
+        //    writer.WriteLine($"\"{otherProp.SerializationName ?? otherProp.Name.ToFirstCharacterLowerCase()}\": n => {{ this.{otherProp.Name.ToFirstCharacterLowerCase()} = n.{GetDeserializationMethodName(otherProp.Type)}; }},");
+        //}
     }
 
     private static void WriteFactoryMethodBody(CodeFunction codeElement, string returnType, LanguageWriter writer)

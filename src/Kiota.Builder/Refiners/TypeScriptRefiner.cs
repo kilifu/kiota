@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Kiota.Builder.CodeDOM;
@@ -10,24 +11,25 @@ using Kiota.Builder.Extensions;
 namespace Kiota.Builder.Refiners;
 public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
 {
-    public TypeScriptRefiner(GenerationConfiguration configuration) : base(configuration) {}
+    public TypeScriptRefiner(GenerationConfiguration configuration) : base(configuration) { }
     public override Task Refine(CodeNamespace generatedCode, CancellationToken cancellationToken)
     {
-        return Task.Run(() => {
+        return Task.Run(() =>
+        {
             cancellationToken.ThrowIfCancellationRequested();
             ReplaceIndexersByMethodsWithParameter(generatedCode, generatedCode, false, "ById");
             RemoveCancellationParameter(generatedCode);
             CorrectCoreType(generatedCode, CorrectMethodType, CorrectPropertyType, CorrectImplements);
             CorrectCoreTypesForBackingStore(generatedCode, "BackingStoreFactorySingleton.instance.createBackingStore()");
             cancellationToken.ThrowIfCancellationRequested();
-            AddInnerClasses(generatedCode, 
-                true, 
+            AddInnerClasses(generatedCode,
+                true,
                 string.Empty,
                 true);
             // `AddInnerClasses` will have inner classes moved to their own files, so  we add the imports after so that the files don't miss anything.
             // This is because imports are added at the file level so nested classes would potentially use the higher level imports.
             AddDefaultImports(generatedCode, defaultUsingEvaluators);
-            DisableActionOf(generatedCode, 
+            DisableActionOf(generatedCode,
                 CodeParameterKind.RequestConfiguration);
             cancellationToken.ThrowIfCancellationRequested();
             AddPropertiesAndMethodTypesImports(generatedCode, true, true, true);
@@ -51,7 +53,7 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
             ReplaceDefaultSerializationModules(
                 generatedCode,
                 defaultConfiguration.Serializers,
-                new (StringComparer.OrdinalIgnoreCase) {
+                new(StringComparer.OrdinalIgnoreCase) {
                     "@microsoft/kiota-serialization-json.JsonSerializationWriterFactory",
                     "@microsoft/kiota-serialization-text.TextSerializationWriterFactory"
                 }
@@ -59,13 +61,13 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
             ReplaceDefaultDeserializationModules(
                 generatedCode,
                 defaultConfiguration.Deserializers,
-                new (StringComparer.OrdinalIgnoreCase) {
+                new(StringComparer.OrdinalIgnoreCase) {
                     "@microsoft/kiota-serialization-json.JsonParseNodeFactory",
                     "@microsoft/kiota-serialization-text.TextParseNodeFactory"
                 }
             );
             AddSerializationModulesImport(generatedCode,
-                new[] { $"{AbstractionsPackageName}.registerDefaultSerializer", 
+                new[] { $"{AbstractionsPackageName}.registerDefaultSerializer",
                         $"{AbstractionsPackageName}.enableBackingStoreForSerializationWriterFactory",
                         $"{AbstractionsPackageName}.SerializationWriterFactoryRegistry"},
                 new[] { $"{AbstractionsPackageName}.registerDefaultDeserializer",
@@ -108,6 +110,8 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
             AddQueryParameterMapperMethod(
                 generatedCode
             );
+           
+           
             AddModelsInterfaces(generatedCode);
             ReplaceRequestConfigurationsQueryParamsWithInterfaces(generatedCode);
         }, cancellationToken);
@@ -144,7 +148,7 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
         CrawlTree(currentElement, AliasUsingsWithSameSymbol);
     }
     private const string AbstractionsPackageName = "@microsoft/kiota-abstractions";
-    private static readonly AdditionalUsingEvaluator[] defaultUsingEvaluators = { 
+    private static readonly AdditionalUsingEvaluator[] defaultUsingEvaluators = {
         new (x => x is CodeProperty prop && prop.IsOfKind(CodePropertyKind.RequestAdapter),
             AbstractionsPackageName, "RequestAdapter"),
         new (x => x is CodeProperty prop && prop.IsOfKind(CodePropertyKind.Options),
@@ -223,7 +227,8 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
             {
                 originalType.Name = "Record<string, unknown>";
                 urlTplParams.Description = "The raw url or the Url template parameters for the request.";
-                var unionType = new CodeUnionType {
+                var unionType = new CodeUnionType
+                {
                     Name = "rawUrlOrTemplateParameters",
                     IsNullable = true,
                 };
@@ -235,11 +240,12 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
                 });
                 urlTplParams.Type = unionType;
             }
-        } else if(currentMethod.IsOfKind(CodeMethodKind.Factory) && currentMethod.Parameters.OfKind(CodeParameterKind.ParseNode) is CodeParameter parseNodeParam)
+        }
+        else if (currentMethod.IsOfKind(CodeMethodKind.Factory) && currentMethod.Parameters.OfKind(CodeParameterKind.ParseNode) is CodeParameter parseNodeParam)
             parseNodeParam.Type.Name = parseNodeParam.Type.Name[1..];
         CorrectDateTypes(currentMethod.Parent as CodeClass, DateTypesReplacements, currentMethod.Parameters
                                                 .Select(x => x.Type)
-                                                .Union(new[] { currentMethod.ReturnType})
+                                                .Union(new[] { currentMethod.ReturnType })
                                                 .ToArray());
     }
     private static readonly Dictionary<string, (string, CodeUsing)> DateTypesReplacements = new(StringComparer.OrdinalIgnoreCase)
@@ -318,12 +324,48 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
     }
     private const string TemporaryInterfaceNameSuffix = "Interface";
     private const string FinalModelClassNameSuffix = "Impl";
+
+    private static void CreateSerializationFunctions(CodeElement generatedCode)
+    {
+        if (generatedCode is CodeClass codeClass && codeClass.Kind == CodeClassKind.Model)
+        {
+            var targetNS = codeClass.GetImmediateParentOfType<CodeNamespace>();
+            var serializer = codeClass.Methods.FirstOrDefault(x => x.Kind == CodeMethodKind.Serializer);
+
+            var deserializer = codeClass.Methods.FirstOrDefault(x => x.Kind == CodeMethodKind.Deserializer);
+            serializer.AddParameter(new CodeParameter { 
+                Name = codeClass.Name,
+                DefaultValue = "{}",
+                Type = new CodeType { Name = codeClass.Name + TemporaryInterfaceNameSuffix, TypeDefinition = targetNS.FindChildByName<CodeInterface>(codeClass.Name + TemporaryInterfaceNameSuffix) }
+                
+
+            });
+            serializer.IsStatic= true;  
+            deserializer.IsStatic= true;
+            var globalSerializer = new CodeFunction(serializer)
+            {
+                Name = $"Serialize{codeClass.Name}",
+            };
+
+            var globalDeserializer = new CodeFunction(deserializer) { 
+                Name = $"DeSerializeInto{ codeClass.Name}",
+            };
+
+            
+
+            targetNS.AddFunction(globalDeserializer);
+            targetNS.AddFunction(globalSerializer);
+        }
+
+        CrawlTree(generatedCode, x => CreateSerializationFunctions(x));
+    }
     private static void AddModelsInterfaces(CodeElement generatedCode)
     {
         GenerateModelInterfaces(
            generatedCode,
            x => $"{x.Name.ToFirstCharacterUpperCase()}Interface".ToFirstCharacterUpperCase()
        );
+        CreateSerializationFunctions(generatedCode);
 
         RenameModelInterfacesAndClasses(generatedCode);
     }
@@ -337,7 +379,11 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
     {
         if (currentElement is CodeClass currentClass && currentClass.IsOfKind(CodeClassKind.Model) && !currentClass.Name.EndsWith(FinalModelClassNameSuffix))
         {
-            currentClass.Name = currentClass.Name + FinalModelClassNameSuffix;
+            var targetNS = currentClass.GetImmediateParentOfType<CodeNamespace>();
+            var existing = targetNS.FindChildByName<CodeInterface>(currentClass.Name, false);
+            if (existing != null)
+                return;
+            targetNS.RemoveChildElement(currentClass);
         }
         else if (currentElement is CodeInterface modelInterface && modelInterface.IsOfKind(CodeInterfaceKind.Model) && modelInterface.Name.EndsWith(TemporaryInterfaceNameSuffix))
         {
