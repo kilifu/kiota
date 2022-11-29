@@ -10,7 +10,7 @@ namespace Kiota.Builder.Writers.TypeScript
     public class CodeNameSpaceWriter : BaseElementWriter<CodeNamespace, TypeScriptConventionService>
     {
         public CodeNameSpaceWriter(TypeScriptConventionService conventionService) : base(conventionService) { }
-        
+
         /// <summary>
         /// Writes export statements for classes and enums belonging to a namespace into a generated index.ts file. 
         /// The classes should be export in the order of inheritance so as to avoid circular dependency issues in javascript.
@@ -24,6 +24,10 @@ namespace Kiota.Builder.Writers.TypeScript
             foreach (var className in sortedClassNames)
             {
                 writer.WriteLine($"export * from './{className.ToFirstCharacterLowerCase()}'");
+            }
+
+            foreach (var codeFunction in codeElement.Functions) {
+                writer.WriteLine($"export * from './{codeFunction.Name.ToFirstCharacterLowerCase()}'");
             }
 
             foreach (var e in codeElement.Enums) {

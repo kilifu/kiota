@@ -138,7 +138,7 @@ public class CodeFunctionWriter : BaseElementWriter<CodeFunction, TypeScriptConv
         var properties = codeInterface.Properties.Where(static x => x.Kind == CodePropertyKind.Custom && !x.ExistsInBaseType);
        
         //if (properties.Any()) {
-            writer.WriteLine("return {");
+        writer.WriteLine("return {");
         writer.IncreaseIndent();
         if (inherits != null)
             {
@@ -148,7 +148,7 @@ public class CodeFunctionWriter : BaseElementWriter<CodeFunction, TypeScriptConv
 
             foreach (var otherProp in properties)
             {
-                writer.WriteLine($"\"{otherProp.SerializationName ?? otherProp.Name.ToFirstCharacterLowerCase()}\": n => {{ {param.Name}.{otherProp.Name.ToFirstCharacterLowerCase()} = n.{GetDeserializationMethodName(otherProp.Type)}; }},");
+                writer.WriteLine($"\"{otherProp.SerializationName.ToFirstCharacterLowerCase() ?? otherProp.Name.ToFirstCharacterLowerCase()}\": n => {{ {param.Name.ToFirstCharacterLowerCase()}.{otherProp.Name.ToFirstCharacterLowerCase()} = n.{GetDeserializationMethodName(otherProp.Type)}; }},");
             }
             writer.DecreaseIndent();
             writer.WriteLine("}");
