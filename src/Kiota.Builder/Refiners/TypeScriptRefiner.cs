@@ -78,35 +78,35 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
                     "ApiError",
                     "@microsoft/kiota-abstractions"
             );
-            AddDiscriminatorMappingsUsingsToParentClasses(
-                generatedCode,
-                "ParseNode",
-                addUsings: false
-            );
-            Func<string, string> factoryNameCallbackFromTypeName = static x => $"create{x.ToFirstCharacterUpperCase()}FromDiscriminatorValue";
-            ReplaceLocalMethodsByGlobalFunctions(
-                generatedCode,
-                x => factoryNameCallbackFromTypeName(x.Parent.Name),
-                x => x.Parent is CodeClass parentClass ? new List<CodeUsing>(parentClass.DiscriminatorInformation
-                                        .DiscriminatorMappings
-                                        .Select(static y => y.Value)
-                                        .OfType<CodeType>()
-                                        .Select(static y => new CodeUsing { Name = y.Name, Declaration = y })) {
-                        new() { Name = "ParseNode", Declaration = new() { Name = AbstractionsPackageName, IsExternal = true } },
-                        new() { Name = x.Parent.Parent.Name, Declaration = new() { Name = x.Parent.Name, TypeDefinition = x.Parent } },
-                    }.ToArray() : Array.Empty<CodeUsing>(),
-                CodeMethodKind.Factory
-            );
-            Func<CodeType, string> factoryNameCallbackFromType = x => factoryNameCallbackFromTypeName(x.Name);
+            //AddDiscriminatorMappingsUsingsToParentClasses(
+            //    generatedCode,
+            //    "ParseNode",
+            //    addUsings: false
+            //);
+            //Func<string, string> factoryNameCallbackFromTypeName = static x => $"create{x.ToFirstCharacterUpperCase()}FromDiscriminatorValue";
+            //ReplaceLocalMethodsByGlobalFunctions(
+            //    generatedCode,
+            //    x => factoryNameCallbackFromTypeName(x.Parent.Name),
+            //    x => x.Parent is CodeClass parentClass ? new List<CodeUsing>(parentClass.DiscriminatorInformation
+            //                            .DiscriminatorMappings
+            //                            .Select(static y => y.Value)
+            //                            .OfType<CodeType>()
+            //                            .Select(static y => new CodeUsing { Name = y.Name, Declaration = y })) {
+            //            new() { Name = "ParseNode", Declaration = new() { Name = AbstractionsPackageName, IsExternal = true } },
+            //            new() { Name = x.Parent.Parent.Name, Declaration = new() { Name = x.Parent.Name, TypeDefinition = x.Parent } },
+            //        }.ToArray() : Array.Empty<CodeUsing>(),
+            //    CodeMethodKind.Factory
+            //);
+            //Func<CodeType, string> factoryNameCallbackFromType = x => factoryNameCallbackFromTypeName(x.Name);
             cancellationToken.ThrowIfCancellationRequested();
-            AddStaticMethodsUsingsForDeserializer(
-                generatedCode,
-                factoryNameCallbackFromType
-            );
-            AddStaticMethodsUsingsForRequestExecutor(
-                generatedCode,
-                factoryNameCallbackFromType
-            );
+            //AddStaticMethodsUsingsForDeserializer(
+            //    generatedCode,
+            //    factoryNameCallbackFromType
+            //);
+            //AddStaticMethodsUsingsForRequestExecutor(
+            //    generatedCode,
+            //    factoryNameCallbackFromType
+            //);
             AddQueryParameterMapperMethod(
                 generatedCode
             );
@@ -333,25 +333,49 @@ public class TypeScriptRefiner : CommonLanguageRefiner, ILanguageRefiner
             var serializer = codeClass.Methods.FirstOrDefault(x => x.Kind == CodeMethodKind.Serializer);
 
             var deserializer = codeClass.Methods.FirstOrDefault(x => x.Kind == CodeMethodKind.Deserializer);
-            serializer.AddParameter(new CodeParameter { 
-                Name = codeClass.Name,
-                DefaultValue = "{}",
-                Type = new CodeType { Name = codeClass.Name + TemporaryInterfaceNameSuffix, TypeDefinition = targetNS.FindChildByName<CodeInterface>(codeClass.Name + TemporaryInterfaceNameSuffix) }
-                
+            serializer.IsStatic = true;
+            deserializer.IsStatic = true;
 
-            });
-            serializer.IsStatic= true;  
-            deserializer.IsStatic= true;
             var globalSerializer = new CodeFunction(serializer)
             {
-                Name = $"Serialize{codeClass.Name}",
+                Name = $"Serialize{codeClass.Name.ToFirstCharacterUpperCase()}",
             };
 
             var globalDeserializer = new CodeFunction(deserializer) { 
-                Name = $"DeSerializeInto{ codeClass.Name}",
+                Name = $"DeserializeInto{ codeClass.Name.ToFirstCharacterUpperCase()}",
             };
 
-            
+
+            var modelInterface = targetNS.FindChildByName<CodeInterface>(codeClass.Name + TemporaryInterfaceNameSuffix);
+            var param = new CodeParameter
+            {
+                Name = codeClass.Name,
+                DefaultValue = "{}",
+                Type = new CodeType { Name = codeClass.Name + TemporaryInterfaceNameSuffix, TypeDefinition = modelInterface }
+
+
+            };
+            serializer.AddParameter(param);
+            deserializer.AddParameter(param);
+
+
+            foreach (var use in codeClass.Usings) {
+                globalDeserializer.AddUsing(use);
+            }
+            foreach (var use in codeClass.Usings)
+            {
+                globalSerializer.AddUsing(use);
+            }
+
+            // add using for other functions 
+
+            //globalDeserializer.AddUsing(new CodeUsing { 
+            //    Name = targetNS.Name,
+            //    Declaration = new CodeType { 
+            //        Name = modelInterface.Name,
+            //     TypeDefinition = modelInterface,
+            //    }
+            //});
 
             targetNS.AddFunction(globalDeserializer);
             targetNS.AddFunction(globalSerializer);

@@ -9,6 +9,7 @@ namespace Kiota.Builder.Writers.TypeScript;
 
 public class CodeFunctionWriter : BaseElementWriter<CodeFunction, TypeScriptConventionService>
 {
+    private TypeScriptConventionService localConventions;
     private readonly CodeUsingWriter _codeUsingWriter;
     public CodeFunctionWriter(TypeScriptConventionService conventionService, string clientNamespaceName) : base(conventionService){
         _codeUsingWriter = new (clientNamespaceName);
@@ -20,23 +21,159 @@ public class CodeFunctionWriter : BaseElementWriter<CodeFunction, TypeScriptConv
         if(codeElement.OriginalLocalMethod == null) throw new InvalidOperationException($"{nameof(codeElement.OriginalLocalMethod)} should not be null");
         ArgumentNullException.ThrowIfNull(writer);
         if(codeElement.Parent is not CodeNamespace) throw new InvalidOperationException("the parent of a function should be a namespace");
-
+        _codeUsingWriter.WriteCodeElement(codeElement.StartBlock.Usings, codeElement.GetImmediateParentOfType<CodeNamespace>(), writer);
 
         var returnType = conventions.GetTypeString(codeElement.OriginalLocalMethod.ReturnType, codeElement);
-        _codeUsingWriter.WriteCodeElement(codeElement.StartBlock.Usings, codeElement.GetImmediateParentOfType<CodeNamespace>(), writer);
         CodeMethodWriter.WriteMethodPrototypeInternal(codeElement.OriginalLocalMethod, writer, returnType, false, conventions, true);
+
         writer.IncreaseIndent();
-        CodeMethodWriter.WriteDefensiveStatements(codeElement.OriginalLocalMethod, writer);
-        WriteFactoryMethodBody(codeElement, returnType, writer);
+
+        var codeMethod = codeElement.OriginalLocalMethod;
+        localConventions = new TypeScriptConventionService(writer);
+        if (codeMethod.Kind == CodeMethodKind.Deserializer)
+        {
+            WriteDeserializerMethod(codeElement, writer);
+        }else
+        if (codeMethod.Kind == CodeMethodKind.Serializer)
+        {
+            WriteSerializerMethod(codeElement, writer);
+        }
+        else
+        {
+            CodeMethodWriter.WriteDefensiveStatements(codeElement.OriginalLocalMethod, writer);
+            WriteFactoryMethodBody(codeElement, returnType, writer);
+        }
+    }
+
+    private void WriteSerializerMethod(CodeFunction codeElement, LanguageWriter writer)
+    {
+        var param = codeElement.OriginalLocalMethod.Parameters.FirstOrDefault(x=> (x.Type as CodeType).TypeDefinition is CodeInterface);
+        var codeInterface = (param.Type as CodeType).TypeDefinition as CodeInterface;
+        //writer.WriteLine($"return {{{(inherits ? $"...super.{codeElement.Name.ToFirstCharacterLowerCase()}()," : string.Empty)}");
+        var inherits = codeInterface.StartBlock.Implements.FirstOrDefault(x => x.TypeDefinition is CodeInterface);
+        writer.IncreaseIndent();
+
+        if (inherits != null) 
+        {
+            writer.WriteLine($"serialize{inherits.Name.ToFirstCharacterUpperCase()}({param.Name.ToFirstCharacterLowerCase()})");
+        }
+
+        foreach (var otherProp in codeInterface.Properties.Where(static x =>x.Kind == CodePropertyKind.Custom && !x.ExistsInBaseType))
+        {
+            WritePropertySerializer(codeInterface.Name.ToFirstCharacterLowerCase(), otherProp, writer);
+        }
+
+        writer.DecreaseIndent();
+
+    }
+
+    private void WritePropertySerializer(string modelParamName,CodeProperty codeProperty, LanguageWriter writer)
+    {
+        var isCollectionOfEnum = false;// IsCodePropertyCollectionOfEnum(codeProperty);
+        var spreadOperator = isCollectionOfEnum ? "..." : string.Empty;
+        var codePropertyName = codeProperty.Name.ToFirstCharacterLowerCase();
+        var undefinedPrefix = isCollectionOfEnum ? $"modelParamName.{codePropertyName} && " : string.Empty;
+        var isCollection = codeProperty.Type.CollectionKind != CodeTypeBase.CodeTypeCollectionKind.None && codeProperty.Type is CodeType currentType && currentType.TypeDefinition != null;
+        var str = "";
+
+        //if (isCollection && !isCollectionOfEnum)
+        //{
+        //    writer.Write($"if(this.{codePropertyName} && this.{codePropertyName}.length != 0){{");
+        //    str = ConvertPropertyValueToInstanceArray(codePropertyName, codeProperty.Type, writer);
+        //}
+        //else
+        //{
+        //    writer.WriteLine($"if(this.{codePropertyName}){{");
+        //    var propertyType = localConventions.TranslateType(codeProperty.Type);
+        //    str = IsPredefinedType(codeProperty.Type) || !IsCodeClassOrInterface(codeProperty.Type) ? $"{spreadOperator}this.{codePropertyName}" : $"(this.{codePropertyName} instanceof {propertyType}{ModelClassSuffix}? this.{codePropertyName} as {propertyType}{ModelClassSuffix}: new {propertyType}{ModelClassSuffix}(this.{codePropertyName}))";
+        //}
+
+        writer.IncreaseIndent();
+        writer.WriteLine($"{undefinedPrefix}writer.{GetSerializationMethodName(codeProperty.Type)}(\"{codeProperty.SerializationName ?? codePropertyName}\", {modelParamName}.{codePropertyName});");
+        writer.DecreaseIndent();
+       
+    }
+
+    private string GetSerializationMethodName(CodeTypeBase propType)
+    {
+        var propertyType = localConventions.TranslateType(propType);
+        if (propType is CodeType currentType)
+        {
+            var result = GetSerializationMethodNameForCodeType(currentType, propertyType);
+            if (!String.IsNullOrWhiteSpace(result))
+            {
+                return result;
+            }
+        }
+        return propertyType switch
+        {
+            "string" or "boolean" or "number" or "Guid" or "Date" or "DateOnly" or "TimeOnly" or "Duration" => $"write{propertyType.ToFirstCharacterUpperCase()}Value",
+            _ => $"writeObjectValue<{propertyType.ToFirstCharacterUpperCase()}>",
+        };
+    }
+
+    private static string GetSerializationMethodNameForCodeType(CodeType propType, string propertyType)
+    {
+        var isCollection = propType.CollectionKind != CodeTypeBase.CodeTypeCollectionKind.None;
+        if (propType.TypeDefinition is CodeEnum currentEnum)
+            return $"writeEnumValue<{currentEnum.Name.ToFirstCharacterUpperCase()}>";
+        else if (isCollection)
+        {
+            if (propType.TypeDefinition == null)
+                return $"writeCollectionOfPrimitiveValues<{propertyType.ToFirstCharacterLowerCase()}>";
+            else
+                return $"writeCollectionOfObjectValues<{propertyType.ToFirstCharacterUpperCase()}>";
+        }
+        return null;
     }
 
     private void  WriteDeserializerMethod(CodeFunction codeElement, LanguageWriter writer)
     {
-        //var codeInterface = codeElement.OriginalLocalMethod.Parameters.FirstOrDefault().GetType.get as CodeInterface;
-        //foreach (var otherProp in parentClass.GetPropertiesOfKind(CodePropertyKind.Custom).Where(static x => !x.ExistsInBaseType))
-        //{
-        //    writer.WriteLine($"\"{otherProp.SerializationName ?? otherProp.Name.ToFirstCharacterLowerCase()}\": n => {{ this.{otherProp.Name.ToFirstCharacterLowerCase()} = n.{GetDeserializationMethodName(otherProp.Type)}; }},");
+        var param = codeElement.OriginalLocalMethod.Parameters.FirstOrDefault();
+
+        var codeInterface = (param.Type as CodeType).TypeDefinition as CodeInterface ;
+        var inherits = codeInterface.StartBlock.Implements.FirstOrDefault(x => x.TypeDefinition is CodeInterface);
+       
+
+        var properties = codeInterface.Properties.Where(static x => x.Kind == CodePropertyKind.Custom && !x.ExistsInBaseType);
+       
+        //if (properties.Any()) {
+            writer.WriteLine("return {");
+        writer.IncreaseIndent();
+        if (inherits != null)
+            {
+                writer.WriteLine($"...deserializeInto{inherits.Name.ToFirstCharacterUpperCase()}({param.Name.ToFirstCharacterLowerCase()}),");
+            }
+        
+
+            foreach (var otherProp in properties)
+            {
+                writer.WriteLine($"\"{otherProp.SerializationName ?? otherProp.Name.ToFirstCharacterLowerCase()}\": n => {{ {param.Name}.{otherProp.Name.ToFirstCharacterLowerCase()} = n.{GetDeserializationMethodName(otherProp.Type)}; }},");
+            }
+            writer.DecreaseIndent();
+            writer.WriteLine("}");
         //}
+    }
+
+    private string GetDeserializationMethodName(CodeTypeBase propType)
+    {
+        var isCollection = propType.CollectionKind != CodeTypeBase.CodeTypeCollectionKind.None;
+        var propertyType = localConventions.TranslateType(propType);
+        if (propType is CodeType currentType)
+        {
+            if (currentType.TypeDefinition is CodeEnum currentEnum)
+                return $"getEnumValue{(currentEnum.Flags || isCollection ? "s" : string.Empty)}<{currentEnum.Name.ToFirstCharacterUpperCase()}>({propertyType.ToFirstCharacterUpperCase()})";
+            else if (isCollection)
+                if (currentType.TypeDefinition == null)
+                    return $"getCollectionOfPrimitiveValues<{propertyType.ToFirstCharacterLowerCase()}>()";
+                else
+                    return $"getCollectionOfObjectValuesFromMethod<{propertyType.ToFirstCharacterUpperCase()}>(deserializeInto{propertyType.ToFirstCharacterUpperCase()})";
+        }
+        return propertyType switch
+        {
+            "string" or "boolean" or "number" or "Guid" or "Date" or "DateOnly" or "TimeOnly" or "Duration" => $"get{propertyType.ToFirstCharacterUpperCase()}Value()",
+            _ => $"deserializeInto{propType.Name}()",
+        };
     }
 
     private static void WriteFactoryMethodBody(CodeFunction codeElement, string returnType, LanguageWriter writer)
